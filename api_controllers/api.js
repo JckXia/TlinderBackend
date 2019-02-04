@@ -1,10 +1,14 @@
 var mongoose=require('mongoose');
+const bcryptjs=require('bcryptjs');
+const User=require('../model/user.model.js');
+const dbInterface=require('../model/dbInterface').dbInterface;
 
 class APIcontroller{
 
   constructor(app,db){
     this._app=app;
     this._DB=db;
+    this.dbFunct=new dbInterface(db);
   }
 
   login(){
@@ -16,31 +20,52 @@ class APIcontroller{
       'password':12345
        ];
     */
-    _app.post('/login', function(req,res){
-      //Parse req body, get pass word and user name
-      // Find username, retrieve the password in hashed form
-      // With the dehashed function? , compare the password and the hashed password
-      //If password = okay, res.send('{okay:1,message:'Successfully login'}')
-      // else
-      // res.send('{okay:0,message Invalid login, }')
+    _app.post('/auth/login', async function(req,res){
+      //Find record in database by username
+      //If user exists, check if password is valid or not
+      //If code is valid, create JWT, return JWT toekn back to user
+      //Other wise, error code will be returned
       res.send('login');
     });
   }
 /*
  var params=[
-    'new_username':Req.
-    'new_password':1234,
+     "first_name":'Jack',
+     "last_name":'Xia',
+     "username":'Jack31',
+     "password":"123456789",
+     "liked":[],
+     "disliked":[],
+     "liked_by":[]
    ];
  */
   register(){
+
     var _app=this._app;
     var I=this;
-    _app.post('/register',(req,res)=>{
-         //Check to see if username exists in database
-         //If user exists, res.send('username exists', sorry!');
-         // Hash the new_password
-         // Passed hashed value and new username into the database
-      res.send('register');
+    _app.post('/auth/register',async (req,res)=>{
+        var I=this.dbFunct;
+      var result= await I.getUserObject(req.query.username);
+      if(result == null){
+
+     var pass=await bcryptjs.hashSync(req.query.password,8);
+       const newUser=new User({
+         first_name:req.query.first_name,
+         last_name:req.query.last_name,
+         username:req.query.username,
+         password:pass,
+         liked:[],
+         disliked:[],
+         liked_by:[]
+       });
+
+      var addResult=await I.insertUserObject(newUser);
+      console.log(addResult);
+       res.send(addResult);
+     }else{
+       res.send('{ok:0,message:`422: User exists`}')
+     }
+
     });
   }
   init(){
@@ -52,5 +77,6 @@ class APIcontroller{
 module.exports={
   APIinit:function(app,db){
     var API=new APIcontroller(app,db);
+    API.init();
   }
 };
