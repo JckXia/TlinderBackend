@@ -1,5 +1,7 @@
 var mongoose=require('mongoose');
 const bcryptjs=require('bcryptjs');
+
+const jwt=require('jsonwebtoken');
 const User=require('../model/user.model.js');
 const dbInterface=require('../model/dbInterface').dbInterface;
 
@@ -12,33 +14,47 @@ class APIcontroller{
   }
 
   login(){
+    //Step 1: Find record in database by username
+    //Step2 :If user exists, check if password is valid or not
+    //If code is valid, create JWT, return JWT toekn back to user
+    //Other wise, error code will be returned
     var _app=this._app;
     var I=this;
-    /*
-     var params=[
-      'username':Jack.
-      'password':12345
-       ];
-    */
     _app.post('/auth/login', async function(req,res){
-      //Find record in database by username
-      //If user exists, check if password is valid or not
-      //If code is valid, create JWT, return JWT toekn back to user
-      //Other wise, error code will be returned
-      res.send('login');
+      var userName=req.query.username;
+      var userObject=await I.dbFunct.getUserObject(userName);
+     if(userObject == null){
+       res.send('{ok:0.message:`User does not exist`}');
+       return;
+     }
+     var userPassword=userObject.password;
+     if(bcryptjs.compareSync(req.query.password,userPassword)){
+
+       var token=jwt.sign({username:req.query.username},'secret',{
+         expiresIn:86400
+       });
+       res.status(200).send({auth: true,accessToken:token});
+     }else{
+     res.send('{ok:0,message:`Login failed!`}');
+   }
     });
   }
-/*
- var params=[
-     "first_name":'Jack',
-     "last_name":'Xia',
-     "username":'Jack31',
-     "password":"123456789",
-     "liked":[],
-     "disliked":[],
-     "liked_by":[]
-   ];
- */
+  
+  getData(){
+    var _app=this._app;
+    var I=this;
+    _app.post('/auth/user',(req,res)=>{
+
+       jwt.verify(req.query.token,'secret',{username:req.query.username},(err,decoded)=>{
+          if(err){
+            throw err;
+          }
+          res.send(decoded);
+       });
+       //res.send(decoded);
+    });
+  }
+
   register(){
 
     var _app=this._app;
@@ -47,30 +63,27 @@ class APIcontroller{
         var I=this.dbFunct;
       var result= await I.getUserObject(req.query.username);
       if(result == null){
-
-     var pass=await bcryptjs.hashSync(req.query.password,8);
        const newUser=new User({
          first_name:req.query.first_name,
          last_name:req.query.last_name,
          username:req.query.username,
-         password:pass,
+         password:bcryptjs.hashSync(req.query.password,8),
          liked:[],
          disliked:[],
          liked_by:[]
        });
-
       var addResult=await I.insertUserObject(newUser);
       console.log(addResult);
        res.send(addResult);
      }else{
        res.send('{ok:0,message:`422: User exists`}')
      }
-
     });
   }
   init(){
     this.login();
     this.register();
+    this.getData();
   }
 };
 
